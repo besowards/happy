@@ -17,7 +17,7 @@ import { z } from 'zod'
 import { startDaemon } from './daemon/run'
 import { checkIfDaemonRunningAndCleanupStaleState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './daemon/controlClient'
 import { getLatestDaemonLog } from './ui/logger'
-import { killRunawayHappyProcesses } from './daemon/doctor'
+import { findRunawayHappyProcesses, killRunawayHappyProcesses } from './daemon/doctor'
 import { install } from './daemon/install'
 import { uninstall } from './daemon/uninstall'
 import { ApiClient } from './api/api'
@@ -34,6 +34,8 @@ import { extractNoSandboxFlag } from './utils/sandboxFlags'
 import { handleResumeCommand } from '@/resume/handleResumeCommand'
 import { ensureDaemonRunning } from './daemon/ensureDaemonRunning'
 import { handleCodexCommand } from './commands/codexCommand'
+import { createInterface } from 'node:readline/promises'
+import { stdin as input, stdout as output } from 'node:process'
 
 
 (async () => {
@@ -54,18 +56,53 @@ import { handleCodexCommand } from './commands/codexCommand'
   if (subcommand === 'doctor') {
     // Check for clean subcommand
     if (args[1] === 'clean') {
+      const confirmationFlag = '--i-understand-this-kills-active-sessions';
       if (args.slice(2).some(a => a === '--help' || a === '-h')) {
         console.log(`
-${chalk.bold('happy doctor clean')} - Kill all happy-related processes (daemon + sessions)
+${chalk.bold('happy doctor clean')} - Inspect and optionally terminate Happy processes
 
 ${chalk.bold('Usage:')}
   happy doctor clean
+  happy doctor clean ${confirmationFlag}
 
 ${chalk.bold('Warning:')} This is destructive — it terminates the daemon and every running session.
 Conversation history is preserved on the server, but in-flight tool calls are interrupted.
+
+By default this command lists matching processes and asks for confirmation.
+For non-interactive use, pass ${chalk.cyan(confirmationFlag)}.
 `)
         process.exit(0)
       }
+      const targets = await findRunawayHappyProcesses()
+      if (targets.length === 0) {
+        console.log('No Happy daemon or daemon-spawned session processes found to clean.')
+        process.exit(0)
+      }
+      console.log(chalk.bold.red('happy doctor clean is destructive.'))
+      console.log('It will terminate these Happy daemon/session processes:')
+      for (const target of targets) {
+        console.log(`  PID ${target.pid}: ${chalk.gray(target.command)}`)
+      }
+
+      const hasExplicitConfirmation = args.slice(2).includes(confirmationFlag)
+      if (!hasExplicitConfirmation) {
+        if (!process.stdin.isTTY || !process.stdout.isTTY) {
+          console.error(chalk.red(`Refusing to kill ${targets.length} process(es) without explicit approval.`))
+          console.error(`Re-run with ${confirmationFlag} only after confirming no active conversations should stay alive.`)
+          process.exit(2)
+        }
+        const rl = createInterface({ input, output })
+        try {
+          const answer = await rl.question(`Type "kill ${targets.length}" to terminate these process(es): `)
+          if (answer.trim() !== `kill ${targets.length}`) {
+            console.log('Aborted. No processes were killed.')
+            process.exit(2)
+          }
+        } finally {
+          rl.close()
+        }
+      }
+
       const result = await killRunawayHappyProcesses()
       console.log(`Cleaned up ${result.killed} runaway processes`)
       if (result.errors.length > 0) {
@@ -566,12 +603,12 @@ ${chalk.bold('Usage:')}
   happy daemon status             Show daemon status
   happy daemon list               List active sessions
 
-  If you want to kill all happy related processes run 
+  To inspect and optionally terminate happy related processes run
   ${chalk.cyan('happy doctor clean')}
 
 ${chalk.bold('Note:')} The daemon runs in the background and manages Claude sessions.
 
-${chalk.bold('To clean up runaway processes:')} Use ${chalk.cyan('happy doctor clean')}
+${chalk.bold('To inspect runaway processes:')} Use ${chalk.cyan('happy doctor clean')}
 `)
     }
     return;

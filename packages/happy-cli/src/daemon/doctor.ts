@@ -58,12 +58,14 @@ export async function findAllHappyProcesses(): Promise<Array<{ pid: number, comm
 }
 
 /**
- * Find all runaway Happy CLI processes that should be killed
+ * Find Happy CLI daemon/session processes that clean may terminate after approval.
  */
 export async function findRunawayHappyProcesses(): Promise<Array<{ pid: number, command: string }>> {
   const allProcesses = await findAllHappyProcesses();
   
-  // Filter to just runaway processes (excluding current process)
+  // Filter to daemon-owned processes (excluding current process). These may
+  // include active conversations, so callers must require explicit approval
+  // before terminating them.
   return allProcesses
     .filter(p => 
       p.pid !== process.pid && (
@@ -79,7 +81,7 @@ export async function findRunawayHappyProcesses(): Promise<Array<{ pid: number, 
 }
 
 /**
- * Kill all runaway Happy CLI processes
+ * Kill Happy CLI daemon/session processes after caller-side approval.
  */
 export async function killRunawayHappyProcesses(): Promise<{ killed: number, errors: Array<{ pid: number, error: string }> }> {
   const runawayProcesses = await findRunawayHappyProcesses();
