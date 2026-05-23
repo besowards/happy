@@ -16,6 +16,12 @@ The active production Happy daemon should run from:
 
 Do not use `/Users/briandtr/Documents/codex/project/happy-dev/source/happy` as the active Happy installation. That path is a development and experimentation worktree only.
 
+## Version Role
+
+When Brian asks to upgrade Happy, use the highest numbered Happy CLI version available for this local source-backed install. Do not downgrade to npm dist-tags when they are lower than the current local numbered version.
+
+Current canonical local version: `1.3.1-3`.
+
 ## Sync To Main
 
 When the user says `sync to main` or `synt to main`, they mean:
