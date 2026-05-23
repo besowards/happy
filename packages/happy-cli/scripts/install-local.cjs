@@ -19,13 +19,30 @@ const path = require('path');
 
 const PACKAGE_DIR = path.resolve(__dirname, '..');
 const IS_WINDOWS = process.platform === 'win32';
+const PATH_DELIMITER = IS_WINDOWS ? ';' : ':';
 
-function run(cmd, args, { allowFailure = false } = {}) {
+function withoutWorkspaceBin(envPath) {
+    const workspaceBins = new Set([
+        path.resolve(PACKAGE_DIR, 'node_modules', '.bin'),
+        path.resolve(PACKAGE_DIR, '..', '..', 'node_modules', '.bin'),
+    ]);
+    return (envPath || '')
+        .split(PATH_DELIMITER)
+        .filter(Boolean)
+        .filter((entry) => !workspaceBins.has(path.resolve(entry)))
+        .join(PATH_DELIMITER);
+}
+
+function run(cmd, args, { allowFailure = false, scrubWorkspaceBin = false } = {}) {
     const label = [cmd, ...args].join(' ');
     console.log(`\n▶ ${label}`);
+    const env = scrubWorkspaceBin
+        ? { ...process.env, PATH: withoutWorkspaceBin(process.env.PATH) }
+        : process.env;
     const result = spawnSync(cmd, args, {
         cwd: PACKAGE_DIR,
         stdio: 'inherit',
+        env,
         // shell: true resolves `.cmd` shims on Windows so `pnpm` / `npm` / `happy` are found.
         shell: IS_WINDOWS,
     });
@@ -46,7 +63,7 @@ run('pnpm', ['run', 'build']);
 run('happy', ['daemon', 'stop'], { allowFailure: true });
 run('npm', ['link']);
 run('happy', ['daemon', 'start']);
-run('happy', ['--version']);
+run('happy', ['--version'], { scrubWorkspaceBin: true });
 
 console.log(`\n✓ Installed from ${PACKAGE_DIR}`);
 console.log('  To undo: npm unlink -g happy && npm i -g happy@latest');

@@ -14,7 +14,7 @@ The active production Happy daemon should run from:
 
 `/Users/briandtr/happy-main/packages/happy-cli/dist/index.mjs`
 
-Do not use `/Users/briandtr/Documents/codex/project/happy-dev/source/happy` as the active Happy installation. That path is a development and experimentation worktree only.
+There should not be a second active Happy checkout under `/Users/briandtr/happy`, `/Users/briandtr/archive/happy-coder-legacy-*`, or `/Users/briandtr/Documents/codex/project/happy-dev`. If one appears, treat it as noncanonical until Brian explicitly asks to create a separate development checkout.
 
 ## Version Role
 
