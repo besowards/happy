@@ -144,7 +144,7 @@ export async function runDoctorCommand(): Promise<void> {
 
             if (allProcesses.length > 1) {
                 console.log(chalk.bold('\n💡 Process Management'));
-                console.log(chalk.gray('To clean up runaway processes: happy doctor clean'));
+                console.log(chalk.gray('To inspect and optionally terminate runaway processes: happy doctor clean'));
             }
         } else {
             console.log(chalk.red('❌ No happy processes found'));
